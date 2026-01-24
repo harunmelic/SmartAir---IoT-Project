@@ -1,0 +1,21 @@
+# Angular
+angular-app/node_modules/
+angular-app/dist/
+angular-app/.angular/
+angular-app/.vscode/
+
+# PlatformIO
+esp32-firmware/.pio/
+esp32-firmware/.vscode/
+
+# Environment files
+**/environments/environment.ts
+**/environments/environment.development.ts
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# WiFi credentials
+esp32-firmware/include/wifi_config.h

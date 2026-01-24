@@ -1,0 +1,246 @@
+<div class="dashboard-container">
+  <!-- Sub-tabs -->
+  <div class="sub-tabs">
+    <button 
+      class="sub-tab-btn" 
+      [class.active]="activeTab === 'dashboard'" 
+      (click)="switchTab('dashboard')">
+      📊 Dashboard
+    </button>
+    <button 
+      class="sub-tab-btn" 
+      [class.active]="activeTab === 'logs'" 
+      (click)="switchTab('logs')">
+      📋 Logs
+    </button>
+    <button 
+      class="sub-tab-btn" 
+      [class.active]="activeTab === 'settings'" 
+      (click)="switchTab('settings')">
+      ⚙️ Settings
+    </button>
+  </div>
+
+  <!-- Dashboard Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'dashboard'">
+  <!-- Connection Status -->
+  <div class="status-bar">
+    <div class="connection-status" [class.connected]="isConnected" [class.disconnected]="!isConnected">
+      <span class="status-dot"></span>
+      <span>{{ isConnected ? 'ESP32 Connected' : 'ESP32 Disconnected' }}</span>
+    </div>
+    
+    <div class="pin-input-section">
+      <input 
+        type="password" 
+        [(ngModel)]="pinCode" 
+        placeholder="Enter PIN" 
+        class="pin-input"
+        maxlength="4"
+        (input)="pinError = ''"
+      />
+      <span class="pin-error" *ngIf="pinError">{{ pinError }}</span>
+    </div>
+    
+    <div class="alarm-controls">
+      <button class="arm-btn" 
+              [class.active]="alarmStatus.armed" 
+              [disabled]="!pinCode || pinCode.length === 0 || alarmStatus.armed"
+              (click)="armAlarm()">
+        🔒 ARM
+      </button>
+      
+      <button class="disarm-btn" 
+              [disabled]="!pinCode || pinCode.length === 0 || !alarmStatus.armed"
+              (click)="disarmAlarm()">
+        🔓 DISARM
+      </button>
+    </div>
+  </div>
+
+  <!-- Alarm Status Card -->
+  <div class="alarm-status-card" [style.border-color]="getAlarmStatusColor()">
+    <div class="status-header">
+      <h2>🚨 Alarm Status</h2>
+      <span class="status-badge" [style.background-color]="getAlarmStatusColor()">
+        {{ getAlarmStatusText() }}
+      </span>
+    </div>
+    
+    <div class="status-details">
+      <div class="detail-item">
+        <span class="label">Armed:</span>
+        <span class="value">{{ alarmStatus.armed ? '✅ YES' : '❌ NO' }}</span>
+      </div>
+      <div class="detail-item">
+        <span class="label">Triggered:</span>
+        <span class="value">{{ alarmStatus.triggered ? '🚨 YES' : '✅ NO' }}</span>
+      </div>
+      <div class="detail-item">
+        <span class="label">PIR Sensor:</span>
+        <span class="value">{{ pirState === 1 ? '🔴 MOTION' : '🟢 CLEAR' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Latest Alert -->
+  <div class="alert-card" *ngIf="latestAlert">
+    <div class="alert-header">
+      <h3>⚠️ Latest Alert</h3>
+    </div>
+    <p class="alert-message">{{ latestAlert.last }}</p>
+  </div>
+
+  <!-- Info Message -->
+  <div class="info-message" *ngIf="!alarmStatus.armed && isConnected">
+    ℹ️ Alarm is currently DISARMED. Activate the alarm by clicking the ARM button to enable motion detection.
+  </div>
+  
+  <div class="warning-message" *ngIf="alarmStatus.armed && isConnected">
+    ⚠️ Alarm is ACTIVE! Any motion will trigger the alarm with an audible signal.
+  </div>
+  </div>
+
+  <!-- Logs Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'logs'">
+    <!-- Motion Logs -->
+    <div class="motion-logs-card">
+      <h3>📋 Motion Logs</h3>
+      <div class="logs-container">
+        <div class="log-item" *ngFor="let log of motionLogs">
+          <span class="log-time">{{ formatTimestamp(log.timestamp) }}</span>
+          <span class="log-message">{{ log.message }}</span>
+        </div>
+        <div class="no-logs" *ngIf="motionLogs.length === 0">
+          No recorded motion events
+        </div>
+      </div>
+    </div>
+
+    <!-- Latest Alert -->
+    <div class="alert-card" *ngIf="latestAlert">
+      <div class="alert-header">
+        <h3>⚠️ Latest Alert</h3>
+      </div>
+      <p class="alert-message">{{ latestAlert.last }}</p>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'settings'">
+    <!-- Settings Sub-menu -->
+    <div class="settings-menu">
+      <button 
+        class="settings-menu-btn"
+        [class.active]="settingsSubView === 'email'"
+        (click)="switchSettingsView('email')">
+        📧 Email Notifications
+      </button>
+      <button 
+        class="settings-menu-btn"
+        [class.active]="settingsSubView === 'schedule'"
+        (click)="switchSettingsView('schedule')">
+        ⏰ Schedule Settings
+      </button>
+    </div>
+
+    <!-- Email Notifications View -->
+    <div *ngIf="settingsSubView === 'email'">
+      <div class="email-card">
+        <div class="email-header">
+          <h3>📧 Email Notifications</h3>
+        </div>
+        <div class="email-settings">
+          <p class="email-info">Enter email address to receive alerts when alarm is triggered</p>
+          <div class="email-input-group">
+            <input 
+              type="email" 
+              [(ngModel)]="notificationEmail" 
+              placeholder="your.email@example.com"
+              class="email-input"
+            />
+            <button class="save-email-btn" (click)="updateNotificationEmail()">
+              💾 Save
+            </button>
+          </div>
+          <p class="email-note">
+            ℹ️ Email notifications are sent automatically when the alarm is triggered.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule Settings View -->
+    <div *ngIf="settingsSubView === 'schedule'">
+      <div class="schedule-card">
+        <div class="schedule-header">
+          <h3>⏰ Scheduled Activation</h3>
+          <label class="toggle-switch">
+            <input type="checkbox" [(ngModel)]="scheduleEnabled" (change)="updateSchedule()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        
+        <div class="schedule-settings" *ngIf="scheduleEnabled">
+          <div class="time-row">
+            <label>Start:</label>
+            <div class="time-inputs">
+              <input 
+                type="number" 
+                [(ngModel)]="scheduleStartHour" 
+                (change)="updateSchedule()"
+                min="0" 
+                max="23" 
+                class="hour-input"
+                placeholder="00"
+              />
+              <span class="separator">:</span>
+              <input 
+                type="number" 
+                [(ngModel)]="scheduleStartMinute" 
+                (change)="updateSchedule()"
+                min="0" 
+                max="59" 
+                class="minute-input"
+                placeholder="00"
+              />
+            </div>
+          </div>
+          
+          <div class="time-row">
+            <label>End:</label>
+            <div class="time-inputs">
+              <input 
+                type="number" 
+                [(ngModel)]="scheduleEndHour" 
+                (change)="updateSchedule()"
+                min="0" 
+                max="23" 
+                class="hour-input"
+                placeholder="00"
+              />
+              <span class="separator">:</span>
+              <input 
+                type="number" 
+                [(ngModel)]="scheduleEndMinute" 
+                (change)="updateSchedule()"
+                min="0" 
+                max="59" 
+                class="minute-input"
+                placeholder="00"
+              />
+            </div>
+          </div>
+          
+          <p class="schedule-info">
+            ℹ️ Alarm will automatically activate every day from <strong>{{ scheduleStartHour < 10 ? '0' + scheduleStartHour : scheduleStartHour }}:{{ scheduleStartMinute < 10 ? '0' + scheduleStartMinute : scheduleStartMinute }}</strong> to <strong>{{ scheduleEndHour < 10 ? '0' + scheduleEndHour : scheduleEndHour }}:{{ scheduleEndMinute < 10 ? '0' + scheduleEndMinute : scheduleEndMinute }}</strong>
+          </p>
+        </div>
+        
+        <div class="schedule-disabled" *ngIf="!scheduleEnabled">
+          <p>Enable scheduled activation to automatically ARM the alarm at specific times</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
