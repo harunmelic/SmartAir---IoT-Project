@@ -2,11 +2,11 @@
 
 Pametni IoT alarm sistem baziran na ESP32 mikrokontroleru za detekciju pokreta i kontrolu preko web aplikacije.
 
-## 📋 Opis
+##  Opis
 
 Sistem koristi PIR senzor za detekciju pokreta, buzzer za audio signalizaciju, i Firebase Realtime Database za IoT komunikaciju. Kontrola se vrši preko Angular web aplikacije sa funkcionalnostima ARM/DISARM alarma, praćenjem logova pokreta, i real-time notifikacijama.
 
-## 🛠️ Komponente
+##  Komponente
 
 ### Hardware:
 - **ESP32 Dev Board**
@@ -18,7 +18,7 @@ Sistem koristi PIR senzor za detekciju pokreta, buzzer za audio signalizaciju, i
 - **Angular Web App** (Angular 18)
 - **Firebase Realtime Database**
 
-## 📁 Struktura:
+##  Struktura:
 
 ```
 Pametni-Alarm/
@@ -39,7 +39,7 @@ Pametni-Alarm/
 └── README.md
 ```
 
-## 🚀 Pokretanje
+##  Pokretanje
 
 ### ESP32 Firmware:
 1. Otvori `esp32-firmware` folder u PlatformIO (VS Code Extension)
@@ -84,18 +84,18 @@ Aplikacija će biti dostupna na: http://localhost:4200
 
 ## 🔧 Funkcionalnosti:
 
-- ✅ PIR detekcija pokreta sa debounce-om (2s)
-- ✅ ARM/DISARM alarm kontrola
-- ✅ Buzzer potvrda aktivacije (3 beep)
-- ✅ Alarm timeout (30 sekundi automatsko zaustavljanje)
-- ✅ NTP sinhronizacija za pravi timestamp
-- ✅ Real-time Firebase sinhronizacija
-- ✅ Web kontrolni panel (Angular 18)
-- ✅ Log pokreta sa vremenskim pečatom
-- ✅ Alert notifikacije
-- ✅ Connection status monitoring
+-  PIR detekcija pokreta sa debounce-om (2s)
+-  ARM/DISARM alarm kontrola
+-  Buzzer potvrda aktivacije (3 beep)
+-  Alarm timeout (30 sekundi automatsko zaustavljanje)
+-  NTP sinhronizacija za pravi timestamp
+-  Real-time Firebase sinhronizacija
+-  Web kontrolni panel (Angular 18)
+-  Log pokreta sa vremenskim pečatom
+-  Alert notifikacije
+-  Connection status monitoring
 
-## 📊 Firebase Struktura:
+##  Firebase Struktura:
 
 ```
 devices/
@@ -113,14 +113,14 @@ devices/
       └── lastMotion: timestamp
 ```
 
-## 🛡️ Sigurnost:
+##  Sigurnost:
 
 - Firebase Authentication obavezna
 - WiFi WPA2 enkripcija
 - Environment variables za sensitive podatke
 - HTTPS komunikacija
 
-## 📝 Napomene:
+##  Napomene:
 
 - ESP32 mora biti povezan na WiFi mrežu
 - Firebase projekat mora biti aktivan
@@ -145,6 +145,6 @@ devices/
 - Provjeri da li je alarm ARM-ovan
 - Provjeri Serial Monitor za debug output
 
-## 📄 Licenca:
+##  Licenca:
 
 Open-source projekat za edukativne svrhe.
