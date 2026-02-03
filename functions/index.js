@@ -1,105 +1,122 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+const { onValueWritten } = require("firebase-functions/v2/database");
+const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
-// Email konfiguracija (koristi environment variable)
-// Gmail SMTP - potrebno je omogućiti "App Password" u Gmail settings
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER || 'harun1melic6@gmail.com',
-    pass: process.env.EMAIL_PASSWORD || 'ijjbkfajockghduk'
-  }
-});
-
-// Rate limiting - šalje max 1 email na 5 minuta
-const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minuta
-
-exports.sendAlarmEmail = functions.database
-  .ref('/devices/alarm_esp32_main/alerts/last')
-  .onUpdate(async (change, context) => {
-    const alertMessage = change.after.val();
-    
-    if (!alertMessage) {
-      console.log('No alert message');
+// Firebase Database Trigger - sluša promene na /devices/{deviceId}/alerts/last
+exports.sendAlertEmail = onValueWritten(
+  {
+    ref: "/devices/{deviceId}/alerts/last",
+    region: "europe-west1", // MORA biti isti region kao database!
+  },
+  async (event) => {
+    // Ako je alert obrisan ili nije promenjen, ne radi ništa
+    if (!event.data.after.exists()) {
+      console.log("Alert deleted, skipping email");
       return null;
     }
 
-    // Šalji email SAMO ako je alarm triggerovan (pokret detektovan)
-    if (!alertMessage.includes('TRIGGERED') && !alertMessage.includes('Pokret detektovan')) {
-      console.log('Not a triggered alert, skipping email. Message:', alertMessage);
+
+    const alertMessage = event.data.after.val();
+    const deviceId = event.params.deviceId;
+
+    // Pročitaj status alarma
+    const alarmStatusSnapshot = await admin
+      .database()
+      .ref(`/devices/${deviceId}/status`)
+      .once("value");
+    const alarmStatus = alarmStatusSnapshot.val();
+    if (!alarmStatus || !alarmStatus.triggered) {
+      console.log("Alarm nije trigerovan, email se ne šalje.");
       return null;
     }
+
+    console.log(`Alert triggered for device ${deviceId}: ${alertMessage}`);
+
+    // Dobij vrednosti environment varijabli
+    const emailUserValue = process.env.EMAIL_USER;
+    const emailPasswordValue = process.env.EMAIL_PASSWORD;
+
+    if (!emailUserValue || !emailPasswordValue) {
+      console.error("Email credentials not configured in environment variables");
+      return null;
+    }
+
+    // Pročitaj notification email iz settings
+    const settingsSnapshot = await admin
+      .database()
+      .ref(`/devices/${deviceId}/settings/notificationEmail`)
+      .once("value");
+
+    const recipientEmail = settingsSnapshot.val();
+
+    if (!recipientEmail) {
+      console.log("No notification email configured, skipping email send");
+      return null;
+    }
+
+    // Rate limiting - provera da li je prošlo 5 minuta od zadnjeg emaila
+    const lastEmailSnapshot = await admin
+      .database()
+      .ref(`/devices/${deviceId}/settings/lastEmailSent`)
+      .once("value");
+
+    const lastEmailTime = lastEmailSnapshot.val() || 0;
+    const currentTime = Date.now();
+    const fiveMinutes = 1 * 60 * 1000; // 1 minut u milisekundama
+
+    if (currentTime - lastEmailTime < fiveMinutes) {
+      console.log("Rate limit: Less than 5 minutes since last email, skipping");
+      return null;
+    }
+
+    // Kreiraj transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: emailUserValue,
+        pass: emailPasswordValue,
+      },
+    });
+
+    // Email konfiguracija
+    const mailOptions = {
+      from: `SmartAlarm <${emailUserValue}>`,
+      to: recipientEmail,
+      subject: "🚨 SmartAlarm Alert - Motion Detected!",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #d32f2f;">🚨 Motion Detected!</h2>
+          <p><strong>Alert Message:</strong> ${alertMessage}</p>
+          <p><strong>Device ID:</strong> ${deviceId}</p>
+          <p><strong>Time:</strong> ${new Date().toLocaleString("en-GB", {
+            timeZone: "Europe/Sarajevo",
+          })}</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">
+            This is an automated message from your SmartAlarm system.<br>
+            You will not receive another alert for 5 minutes.
+          </p>
+        </div>
+      `,
+    };
 
     try {
-      // Dohvati email adresu iz settings
-      const emailSnapshot = await admin.database()
-        .ref('/devices/alarm_esp32_main/settings/notificationEmail')
-        .once('value');
-      
-      const recipientEmail = emailSnapshot.val();
-      
-      if (!recipientEmail) {
-        console.log('No email configured for notifications');
-        return null;
-      }
-
-      // Provjeri rate limit
-      const lastEmailSnapshot = await admin.database()
-        .ref('/devices/alarm_esp32_main/settings/lastEmailSent')
-        .once('value');
-      
-      const lastEmailTime = lastEmailSnapshot.val() || 0;
-      const now = Date.now();
-      
-      if (now - lastEmailTime < RATE_LIMIT_MS) {
-        console.log(`Rate limit active. Last email sent ${Math.floor((now - lastEmailTime) / 1000)}s ago`);
-        return null;
-      }
-
-      // Pripremi email
-      const mailOptions = {
-        from: `SmartAlarm <${process.env.EMAIL_USER || 'harun1melic6@gmail.com'}>`,
-        to: recipientEmail,
-        subject: '🚨 SmartAlarm - Upozorenje!',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #f44336; color: white; padding: 20px; text-align: center;">
-              <h1>🚨 ALARM TRIGGERED!</h1>
-            </div>
-            <div style="padding: 20px; background: #f5f5f5;">
-              <h2>Detalji alarma:</h2>
-              <p style="font-size: 16px;"><strong>${alertMessage}</strong></p>
-              <p style="color: #666;">Vrijeme: ${new Date().toLocaleString('sr-RS')}</p>
-              <hr style="border: 1px solid #ddd; margin: 20px 0;">
-              <p style="font-size: 14px; color: #666;">
-                Ovo je automatska notifikacija iz vašeg SmartAlarm sistema.
-                Provjerite status alarma putem aplikacije.
-              </p>
-            </div>
-            <div style="background: #333; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              SmartAlarm System © 2026
-            </div>
-          </div>
-        `
-      };
-
       // Pošalji email
       await transporter.sendMail(mailOptions);
-      
-      // Spremi timestamp
-      await admin.database()
-        .ref('/devices/alarm_esp32_main/settings/lastEmailSent')
-        .set(now);
+      console.log(`Email successfully sent to ${recipientEmail}`);
 
-      console.log(`Email sent successfully to ${recipientEmail}`);
-      return null;
-      
+      // Ažuriraj timestamp zadnjeg poslanog emaila
+      await admin
+        .database()
+        .ref(`/devices/${deviceId}/settings/lastEmailSent`)
+        .set(currentTime);
+
+      return { success: true, recipient: recipientEmail };
     } catch (error) {
-      console.error('Error sending email:', error);
-      return null;
+      console.error("Error sending email:", error);
+      return { success: false, error: error.message };
     }
-  });
+  }
+);

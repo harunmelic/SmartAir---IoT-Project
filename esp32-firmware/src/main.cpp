@@ -42,7 +42,6 @@ bool firebaseReady = false;
 bool isArmed = false;                // Da li je alarm aktivan
 bool motionDetected = false;         // Da li je detektovan pokret
 unsigned long lastArmCheck = 0;      // Vrijeme posljednje provjere arm statusa
-bool ntpSynced = false;              // Da li je NTP sinhronizovan
 
 // Planirani period (schedule)
 bool scheduleEnabled = false;
@@ -51,6 +50,7 @@ int scheduleStartMinute = 0;         // Početak minut
 int scheduleEndHour = 6;             // Kraj sat (06:00)
 int scheduleEndMinute = 0;           // Kraj minut
 unsigned long lastScheduleCheck = 0;
+
 // WiFi konekcija
 void connectToWiFi() {
   Serial.println("Povezivanje na WiFi...");
@@ -130,22 +130,6 @@ void sendInt(String path, int value) {
     Serial.println("Podaci poslani: " + fullPath + " = " + String(value));
   } else {
     Serial.println("Greska prilikom slanja podataka: " + fbdo.errorReason());
-  }
-}
-
-// Čita boolean komandu iz Firebase
-bool readBoolCommand(String path) {
-  if (!firebaseReady) return false;
-  
-  String fullPath = "devices/" + String(DEVICE_ID) + "/" + path;
-  
-  if (Firebase.RTDB.getBool(&fbdo, fullPath.c_str())) {
-    bool command = fbdo.boolData();
-    Serial.println("Komanda pročitana: " + fullPath + " = " + String(command ? "true" : "false"));
-    return command;
-  } else {
-    Serial.println("Neuspjelo čitanje komande: " + fbdo.errorReason());
-    return false;
   }
 }
 
@@ -258,6 +242,7 @@ bool isInSchedulePeriod() {
   
   return inPeriod;
 }
+
 bool verifyPinCommand(bool &armCommand) {
   if (!firebaseReady) return false;
   
@@ -320,8 +305,6 @@ void logMotionEvent() {
     Serial.println("Failed to log motion: " + fbdo.errorReason());
   }
 }
-
-
 
 // Buzzer confirmation (3 sec kada se ARM-uje alarm)
 void playConfirmationBeep() {
@@ -475,6 +458,7 @@ void loop() {
         }
       }
     }
+
     // Provjeri ARM/DISARM komandu sa PIN verifikacijom
     bool armCommand = false;
     if (verifyPinCommand(armCommand)) {
